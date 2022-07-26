@@ -1,3 +1,5 @@
+# Original source: https://github.com/ChristianLowe/Grognaks-Mod-Manager/blob/master/lib/tkHyperlinkManager.py
+
 # Modules that changed in Python 3.x.
 try:
     import tkinter as tk
