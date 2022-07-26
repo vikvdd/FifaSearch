@@ -6,23 +6,9 @@ from PyPDF2 import PdfReader
 from io import BytesIO
 from dateutil import parser
 
-REQUEST_SIZE = 50
-DATE_ASCENDING = "dateAsc"
-DATE_DESCENDING = "dateDesc"
-DATA_KEY = "data"
-TOTAL_KEY = "total"
-TITLE_KEY = "title"
-DATE_KEY = "date"
-ORIGINAL_DATE_KEY = "originalDate"
+from const import DATE_DESCENDING, DATA_KEY, ORIGINAL_DATE_KEY, TOTAL_KEY, DATE_ASCENDING, TITLE_KEY, DATE_KEY, \
+    REQUEST_SIZE
 
-TAGS = {
-    "PSC Overdue Payables": "71Tb4ZwcYqRp2Kzg34zxOc",
-    "Players' and Match Agents' Disputes": "5Zs7XCOIH3V0PIu73GNNsk",
-    "Coach Disputes": "32c894g2DJcV5Fwk6fmX8P",
-    "Club vs. Club Disputes": "4aZS15znbShw74IgyNrBth",
-    "Disciplinary Committee": "5Zm4iscqBagohkrC4V1fNB",
-    "Ethics Committee": "REfRLYazlDecPI4V5PsJF"
-}
 
 @staticmethod
 def update_fn(*args, **kwargs):
@@ -207,6 +193,7 @@ class SearchThread(threading.Thread):
         first_date = parse_date(first_entry[DATA_KEY][0][ORIGINAL_DATE_KEY])
         last_entry = self.search.retrieve_entries(self.search.total - 1, size=1)
         last_date = parse_date(last_entry[DATA_KEY][-1][ORIGINAL_DATE_KEY])
+
         if self.search.target_earliest > first_date or self.search.target_latest < last_date:
             return False
         return True
@@ -219,9 +206,13 @@ class SearchThread(threading.Thread):
         first_date = parse_date(first_entry[DATA_KEY][0][ORIGINAL_DATE_KEY])
         last_entry = self.search.retrieve_entries(self.search.total - 1, size=1)
         last_date = parse_date(last_entry[DATA_KEY][-1][ORIGINAL_DATE_KEY])
+        if self.search.target_earliest < last_date:
+            self.search.target_earliest = last_date
+        if self.search.target_latest > first_date:
+            self.search.target_latest = first_date
         if self.search.target_earliest > first_date or self.search.target_latest < last_date:
             return -1
-        if self.search.target_latest > first_date:
+        if self.search.target_latest >= first_date:
             return 0
         while low < high:
             mid_offset = (((high - low) // 2) - REQUEST_SIZE) + low

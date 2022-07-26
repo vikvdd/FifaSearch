@@ -3,6 +3,7 @@ from tkinter.scrolledtext import ScrolledText
 from threading import Event
 from tkinter.ttk import Progressbar
 
+from const import ORIGINAL_DATE_KEY
 from search import Search, SearchThread, parse_date, SearchMode
 from tkinter import *
 from tkinter import ttk
@@ -12,22 +13,11 @@ from functools import partial
 from tkcalendar import DateEntry
 from datetime import timezone, datetime
 
-
-REQUEST_SIZE = 50
-DATE_ASCENDING = "dateAsc"
-DATE_DESCENDING = "dateDesc"
-DATA_KEY = "data"
-TOTAL_KEY = "total"
-TITLE_KEY = "title"
-DATE_KEY = "date"
-ORIGINAL_DATE_KEY = "originalDate"
-
 class App:
 
-    def __init__(self):
-        self.searches = []
-        self.thread = None
-        self.search_active = False
+    def run(self):
+        self.root.mainloop()
+
 
     def on_thread_update(self, percent, msg=""):
         self.prog_lbl.config(text=f"Searching: {msg}")
@@ -44,7 +34,7 @@ class App:
         self.search_button.config(text="Search")
         self.search_active = False
 
-    def update_result_view(self, index, search_term, entry):
+    def on_update_result_view(self, index, search_term, entry):
         self.result_text.insert(1.0, '------------------------\n')
         self.result_text.insert(1.0, f"\nPage matched: {entry['page']}\n\n")
         hyperlink = HyperlinkManager(self.result_text)
@@ -56,8 +46,6 @@ class App:
         self.result_text.insert(1.0, f"\nFound match for term: {search_term}\n")
         self.result_text.insert(1.0, f"\n#{index}:\n")
 
-    def callback(url):
-       webbrowser.open_new_tab(url)
 
 
     def on_click_search(self):
@@ -89,9 +77,9 @@ class App:
                 mode = key
         new_search = Search(search_term, start_date, end_date, tags, mode=mode)
         self.stop_event = threading.Event()
-        self.thread = SearchThread(new_search, self.update_result_view, update_cb=self.on_thread_update, end_cb=self.on_complete_search, stop_event=self.stop_event)
+        self.thread = SearchThread(new_search, self.on_update_result_view, update_cb=self.on_thread_update, end_cb=self.on_complete_search, stop_event=self.stop_event)
         self.searches.append(new_search)
-        self.result_text.insert(1.0, "\n\n\n\n\n------------------------------------------------------------------\n\n\n\n\n")
+        self.result_text.insert(1.0, "\n\n\n\n\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n\n\n\n")
         self.result_text.insert(1.0, f"\nSearch mode: {mode.value}")
         self.result_text.insert(1.0, f"\nSearching for term: {search_term}")
         print(f'Searching for term: {search_term}\n')
@@ -103,7 +91,11 @@ class App:
         self.search_active = True
 
 
-    def run(self):
+    def __init__(self):
+        self.searches = []
+        self.thread = None
+        self.search_active = False
+
         self.root = Tk()
         self.root.title("Fifa Legal Search")
         #self.root.geometry(f"{self.root.winfo_screenwidth()}x{self.root.winfo_screenheight()}")
@@ -127,29 +119,28 @@ class App:
 
 
         self.categories_lb = Listbox(self.mainframe, selectmode="multiple")
-        self.categories_lb.grid(column=0, row=2, sticky=N+W)
+        self.categories_lb.grid(column=0, row=9, sticky=N+W)
         for category in Search.TAGS.keys():
             self.categories_lb.insert(0, category)
 
 
         self.search_mode_combo = ttk.Combobox(self.mainframe)
         self.search_mode_combo.grid(column=0, row=3, sticky=N+W)
-        print(SearchMode.FULL.value)
         self.search_mode_combo['values'] = tuple([str(key.value) for key in SearchMode])
         self.search_mode_combo.set(self.search_mode_combo['values'][0])
 
         self.date_asc = BooleanVar()
-        self.sort_checkbox = ttk.Checkbutton(self.mainframe, text='Sort by oldest', variable=self.date_asc)
-        self.sort_checkbox.grid(column=0, row=4, sticky=NW)
+        #self.sort_checkbox = ttk.Checkbutton(self.mainframe, text='Sort by oldest', variable=self.date_asc)
+        #self.sort_checkbox.grid(column=0, row=4, sticky=NW)
 
 
         self.start_date_lbl = ttk.Label(self.mainframe, text="Start date: ").grid(column=0, row=5, sticky=NW)
-        self.start_cal = DateEntry(self.mainframe, width=15, background="magenta3", foreground="white", bd=2)
+        self.start_cal = DateEntry(self.mainframe, width=15, background="grey", foreground="white", bd=2, date_pattern="dd/mm/y")
         self.start_cal.grid(column=0, row=6, sticky=NW)
         self.start_cal._top_cal.overrideredirect(False)
 
         self.end_date_lbl = ttk.Label(self.mainframe, text="End date: ").grid(column=0, row=7, sticky=NW)
-        self.end_cal = DateEntry(self.mainframe, width= 15, background="magenta3", foreground="white", bd=2)
+        self.end_cal = DateEntry(self.mainframe, width= 15, background="white", foreground="black", bd=2, date_pattern="dd/mm/y")
         self.end_cal.grid(column=0, row=8, sticky=NW)
         self.end_cal._top_cal.overrideredirect(False)
 
@@ -157,7 +148,7 @@ class App:
         self.prog_lbl.grid(column=1, row=1, sticky=S+E+W)
         self.progress = Progressbar(self.mainframe, orient=HORIZONTAL,
                                length=100, mode='determinate')
-        self.progress.grid(column=0, row=9, sticky=S+E+W)
+        self.progress.grid(column=0, row=10, sticky=S+E+W)
 
         for child in self.mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
@@ -172,12 +163,13 @@ class App:
         self.start_cal.set_date(first)
         self.end_cal.set_date(last)
 
-        self.root.mainloop()
+    def callback(url):
+       webbrowser.open_new_tab(url)
 
 
 if __name__ == "__main__":
-   app = App()
-   app.run()
+    app = App()
+    app.run()
 
 
 
