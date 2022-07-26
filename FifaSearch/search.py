@@ -43,8 +43,8 @@ def parse_date(date_str):
         return None
 
 class SearchMode(Enum):
-    FULL = "Full search",
-    META_DATA_ONLY = "Only search metadata",
+    FULL = "Full search"
+    META_DATA_ONLY = "Only search metadata"
     META_AND_COVER = "Search metadata & cover page"
 
 class Search:
@@ -67,6 +67,7 @@ class Search:
         self.target_earliest = earliest
         self.target_latest = latest
         self.tags = tags
+        self.mode = mode
 
     def retrieve_entries(self, offset, size=REQUEST_SIZE):
         api_url = f"https://www.fifa.com/api/get-card-content?requestLocale=en&requestContentTypes=Document&" \
@@ -158,9 +159,14 @@ class SearchThread(threading.Thread):
                 matched = False
                 if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry['tag'].lower():
                     matched = True
+                if self.search.mode == SearchMode.META_DATA_ONLY:
+                    continue
                 try:
                     pdf_url = entry['download']['url']
-                    if self.scan_pdf_for_match(pdf_url, entry):
+                    cover_only = False
+                    if self.search.mode == SearchMode.META_AND_COVER:
+                        cover_only = True
+                    if self.scan_pdf_for_match(pdf_url, entry, cover_only=cover_only):
                         matched = True
 
                 except Exception as e:
@@ -176,7 +182,7 @@ class SearchThread(threading.Thread):
 
         return matching_entries
 
-    def scan_pdf_for_match(self, pdf_url, entry):
+    def scan_pdf_for_match(self, pdf_url, entry, cover_only=False):
         pdf_file = request.urlopen(pdf_url)
         bytes_stream = BytesIO(pdf_file.read())
         reader = PdfReader(bytes_stream)
@@ -189,6 +195,8 @@ class SearchThread(threading.Thread):
                 entry['page'] = index
                 return True
 
+                break
+            if cover_only:
                 break
             index += 1
         return False

@@ -3,7 +3,7 @@ from tkinter.scrolledtext import ScrolledText
 from threading import Event
 from tkinter.ttk import Progressbar
 
-from search import Search, SearchThread, parse_date
+from search import Search, SearchThread, parse_date, SearchMode
 from tkinter import *
 from tkinter import ttk
 from tkHyperlinkManager import HyperlinkManager
@@ -82,13 +82,20 @@ class App:
                     tags += ","
                 tags += tag
         sort_by_oldest = bool(self.date_asc.get())
-        new_search = Search(search_term, start_date, end_date, tags)
+        mode = SearchMode.FULL
+        selected_mode = self.search_mode_combo.get()
+        for key in SearchMode:
+            if key.value == selected_mode:
+                mode = key
+        new_search = Search(search_term, start_date, end_date, tags, mode=mode)
         self.stop_event = threading.Event()
         self.thread = SearchThread(new_search, self.update_result_view, update_cb=self.on_thread_update, end_cb=self.on_complete_search, stop_event=self.stop_event)
         self.searches.append(new_search)
         self.result_text.insert(1.0, "\n\n\n\n\n------------------------------------------------------------------\n\n\n\n\n")
+        self.result_text.insert(1.0, f"\nSearch mode: {mode.value}")
         self.result_text.insert(1.0, f"\nSearching for term: {search_term}")
         print(f'Searching for term: {search_term}\n')
+
 
 
         self.thread.start()
@@ -127,10 +134,14 @@ class App:
 
         self.search_mode_combo = ttk.Combobox(self.mainframe)
         self.search_mode_combo.grid(column=0, row=3, sticky=N+W)
+        print(SearchMode.FULL.value)
+        self.search_mode_combo['values'] = tuple([str(key.value) for key in SearchMode])
+        self.search_mode_combo.set(self.search_mode_combo['values'][0])
 
         self.date_asc = BooleanVar()
         self.sort_checkbox = ttk.Checkbutton(self.mainframe, text='Sort by oldest', variable=self.date_asc)
         self.sort_checkbox.grid(column=0, row=4, sticky=NW)
+
 
         self.start_date_lbl = ttk.Label(self.mainframe, text="Start date: ").grid(column=0, row=5, sticky=NW)
         self.start_cal = DateEntry(self.mainframe, width=15, background="magenta3", foreground="white", bd=2)
