@@ -1,6 +1,8 @@
 # FIFA SEARCH 
 Search app for the Fifa legal database
 
+<img src="https://user-images.githubusercontent.com/28729745/181655579-6569bff2-1e85-4885-8f73-27ac7bfb2d30.png" width="400" />
+
 ## Quick installation 
 
 1. Download the latest version from [the releases page.](https://github.com/vikvdd/FifaSearch/releases/)
