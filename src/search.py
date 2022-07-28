@@ -36,15 +36,6 @@ class SearchMode(Enum):
 
 class Search:
 
-    TAGS = {
-        "PSC Overdue Payables": "71Tb4ZwcYqRp2Kzg34zxOc",
-        "Players' and Match Agents' Disputes": "5Zs7XCOIH3V0PIu73GNNsk",
-        "Coach Disputes": "32c894g2DJcV5Fwk6fmX8P",
-        "Club vs. Club Disputes": "4aZS15znbShw74IgyNrBth",
-        "Disciplinary Committee": "5Zm4iscqBagohkrC4V1fNB",
-        "Ethics Committee": "REfRLYazlDecPI4V5PsJF"
-    }
-
     def __init__(self, term, newest=None, oldest=None, tags="", sort_order=DATE_DESCENDING, mode=SearchMode.FULL):
         self.total = 0
         self.deep_search = False

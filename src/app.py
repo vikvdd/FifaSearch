@@ -3,7 +3,7 @@ from tkinter.scrolledtext import ScrolledText
 from threading import Event
 from tkinter.ttk import Progressbar
 
-from const import ORIGINAL_DATE_KEY, TITLE_KEY, DATE_KEY, TAG_KEY, DOWNLOAD_KEY, URL_KEY, PAGE_KEY
+from const import ORIGINAL_DATE_KEY, TITLE_KEY, DATE_KEY, TAG_KEY, DOWNLOAD_KEY, URL_KEY, PAGE_KEY, TAGS
 from search import Search, SearchThread, parse_date, SearchMode
 from tkinter import *
 from tkinter import ttk
@@ -18,7 +18,7 @@ class App:
     def run(self):
         try:
             tags = []
-            for tag in Search.TAGS.keys():
+            for tag in TAGS.keys():
                 tags.append(tag)
             start_search = Search("", tags=tags)
             first, last = start_search.get_date_range()
@@ -123,7 +123,7 @@ class App:
 
         self.categories_lb = Listbox(self.mainframe, selectmode="multiple")
         self.categories_lb.grid(column=0, row=9, sticky=N + W)
-        for category in Search.TAGS.keys():
+        for category in TAGS.keys():
             self.categories_lb.insert(0, category)
 
         self.search_mode_combo = ttk.Combobox(self.mainframe)
