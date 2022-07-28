@@ -1,4 +1,5 @@
 from enum import Enum
+import ssl
 import threading
 from urllib import request
 import json
@@ -69,7 +70,10 @@ class Search:
                   f"requestSize={size}&requestFrom={offset}&requestSort={self.sort_order}&" \
                   f"requestTags={self.tag_str}&" \
                   f"requestExcludeIds=&requestTagHandlingQuery=OR"
-        resp = request.urlopen(api_url)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        resp = request.urlopen(api_url, context=ctx)
         resp_text = resp.read()
         text = resp_text.decode('utf-8')
         data = json.loads(text)

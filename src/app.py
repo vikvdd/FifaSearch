@@ -122,7 +122,7 @@ class App:
         self.search_button.grid(column=0, row=0, sticky=NE)
 
         self.categories_lb = Listbox(self.mainframe, selectmode="multiple")
-        self.categories_lb.grid(column=0, row=9, sticky=N+W)
+        self.categories_lb.grid(column=0, row=9, sticky=N + W)
         for category in Search.TAGS.keys():
             self.categories_lb.insert(0, category)
 
