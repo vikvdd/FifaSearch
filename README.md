@@ -9,7 +9,7 @@ Search application for the Fifa legal database
 
 ### Mac
 1. Open the terminal application
-2. Enter the following command: `git clone https://github.com/vikvdd/FifaSearch.git;cd FifaSearch/src;pip3 install -r requirements.txt`
+2. Enter the following command: `git clone https://github.com/vikvdd/FifaSearch.git;cd FifaSearch/FifaSearch;pip3 install -r requirements.txt`
 3. Installation complete, you may now run the program using command: `python3 app.py`
 
 [========]
@@ -25,8 +25,8 @@ USAGE:
 4. Select the end date. Only entries posted after the end date will be searched
 
 
-**If you are searching for case numbers, try wrap the search terms in \*'s
-eg: \*FPGP-3430\***
+**If you are searching for case numbers, try wrap the search terms in asterisks** (*)
+> eg: \*FPGP-3430\*
 
 
 [========]
