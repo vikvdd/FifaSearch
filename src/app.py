@@ -28,7 +28,6 @@ class App:
             print(e)
         self.root.mainloop()
 
-
     def on_search_update(self, percent, msg=""):
         self.prog_lbl.config(text=f"Searching: {msg}")
         self.progress['value'] = percent
