@@ -25,7 +25,7 @@ class App:
             self.start_cal.set_date(first)
             self.end_cal.set_date(last)
         except Exception as e:
-            print(e.with_traceback())
+            print(e)
         self.root.mainloop()
 
 
@@ -50,7 +50,8 @@ class App:
             page = int(entry[PAGE_KEY]) + 1
             self.result_text.insert(1.0, f"\nFound on page: {page}\n\n")
         hyperlink = HyperlinkManager(self.result_text)
-        self.result_text.insert(1.0, "\nView PDF", hyperlink.add(partial(webbrowser.open, entry[DOWNLOAD_KEY][URL_KEY])))
+        link = entry[DOWNLOAD_KEY][URL_KEY]
+        self.result_text.insert(1.0, f"\n{link}", hyperlink.add(partial(webbrowser.open, link)))
         self.result_text.insert(1.0, f"\nOriginal Date: {entry[ORIGINAL_DATE_KEY]}")
         self.result_text.insert(1.0, f"\nDate: {entry[DATE_KEY]}")
         self.result_text.insert(1.0, f"\nTag: {entry[TAG_KEY]}")
@@ -74,7 +75,7 @@ class App:
         for i in self.categories_lb.curselection():
             tags.append(self.categories_lb.get(i))
         if len(tags) <= 0:
-            for tag in Search.TAGS.keys():
+            for tag in TAGS.keys():
                 tags.append(tag)
         sort_by_oldest = bool(self.date_asc.get())
         mode = SearchMode.FULL

@@ -175,7 +175,7 @@ class SearchThread(threading.Thread):
 
                     except Exception as e:
                         print("Could not load pdf.")
-                        print(e.with_traceback())
+                        print(e)
                     if self.stop_event.is_set():
                         return matching_entries
                     elif matched:
@@ -184,13 +184,16 @@ class SearchThread(threading.Thread):
                     entry_index += 1
                     self.search.total_searched += 1
                 except Exception as e:
-                    print(e.with_traceback())
+                    print(e)
                     print("An error occurred while searching entry. Skipped.")
             offset += REQUEST_SIZE
         return matching_entries
 
     def scan_pdf_for_match(self, pdf_url, entry, cover_only=False):
-        pdf_file = request.urlopen(pdf_url)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        pdf_file = request.urlopen(pdf_url, context=ctx)
         bytes_stream = BytesIO(pdf_file.read())
         reader = PdfReader(bytes_stream)
         index = 0
