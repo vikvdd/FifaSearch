@@ -16,16 +16,27 @@ from datetime import timezone, datetime
 class App:
 
     def run(self):
+        try:
+            tags = []
+            for tag in Search.TAGS.keys():
+                tags.append(tag)
+            start_search = Search("", tags=tags)
+            first, last = start_search.get_date_range()
+            self.start_cal.set_date(first)
+            self.end_cal.set_date(last)
+        except Exception as e:
+            print(e.with_traceback())
         self.root.mainloop()
+
 
     def on_search_update(self, percent, msg=""):
         self.prog_lbl.config(text=f"Searching: {msg}")
         self.progress['value'] = percent
         self.root.update_idletasks()
 
-    def on_complete_search(self, success, msg=""):
+    def on_complete_search(self, success, matches_found, total_searched):
         if success:
-            self.result_text.insert(1.0, "\nSearch complete.\n\n\n\n")
+            self.result_text.insert(1.0, f"\nSearch complete. Found {matches_found} out of {total_searched}\n\n\n\n")
         else:
             self.result_text.insert(1.0, "\n\nSearch failed. No entries matched given parameters.")
         self.progress['value'] = 0
@@ -35,7 +46,8 @@ class App:
 
     def on_match_found(self, index, search_term, entry):
         self.result_text.insert(1.0, '------------------------\n')
-        self.result_text.insert(1.0, f"\nPage matched: {entry[PAGE_KEY]}\n\n")
+        if PAGE_KEY in entry:
+            self.result_text.insert(1.0, f"\nFound on page: {entry[PAGE_KEY]}\n\n")
         hyperlink = HyperlinkManager(self.result_text)
         self.result_text.insert(1.0, "\nView PDF", hyperlink.add(partial(webbrowser.open, entry[DOWNLOAD_KEY][URL_KEY])))
         self.result_text.insert(1.0, f"\nOriginal Date: {entry[ORIGINAL_DATE_KEY]}")
@@ -50,22 +62,19 @@ class App:
             self.stop_event.set()
             self.search_active = False
             self.search_button.config(text="Search")
+            self.progress['value'] = 0
+            self.prog_lbl.config(text="")
             return
         search_term = str(self.search_input.get())
 
         start_date = datetime.combine(parse_date(self.start_cal.get()), datetime.min.time()).replace(tzinfo=timezone.utc)
         end_date = datetime.combine(parse_date(self.end_cal.get()), datetime.min.time()).replace(tzinfo=timezone.utc)
-        tags = ""
+        tags = []
         for i in self.categories_lb.curselection():
-            item = self.categories_lb.get(i)
-            if not tags == "":
-                tags += ","
-            tags += Search.TAGS[item]
-        if tags == "":
-            for tag in Search.TAGS.values():
-                if not tags== "":
-                    tags += ","
-                tags += tag
+            tags.append(self.categories_lb.get(i))
+        if len(tags) <= 0:
+            for tag in Search.TAGS.keys():
+                tags.append(tag)
         sort_by_oldest = bool(self.date_asc.get())
         mode = SearchMode.FULL
         selected_mode = self.search_mode_combo.get()
@@ -78,6 +87,7 @@ class App:
         self.searches.append(new_search)
         self.result_text.insert(1.0, "\n\n\n\n\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n\n\n\n")
         self.result_text.insert(1.0, f"\nSearch mode: {mode.value}")
+        self.result_text.insert(1.0, f"\nTags: {', '.join(tags)}")
         self.result_text.insert(1.0, f"\nSearching for term: {search_term}")
         self.thread.start()
         self.search_button.config(text="Stop")
@@ -143,15 +153,6 @@ class App:
         for child in self.mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
 
-        tags = ""
-        for tag in Search.TAGS.values():
-            if not tag == "":
-                tags += ","
-            tags += tag
-        start_search = Search("", tags=tags)
-        first, last = start_search.get_date_range()
-        self.start_cal.set_date(first)
-        self.end_cal.set_date(last)
 
 
     def callback(url):

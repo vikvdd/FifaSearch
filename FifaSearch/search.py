@@ -7,7 +7,7 @@ from io import BytesIO
 from dateutil import parser
 
 from const import DATE_DESCENDING, DATA_KEY, ORIGINAL_DATE_KEY, TOTAL_KEY, DATE_ASCENDING, TITLE_KEY, DATE_KEY, \
-    REQUEST_SIZE, TAG_KEY, URL_KEY, DOWNLOAD_KEY, PAGE_KEY, CONTENT_KEY
+    REQUEST_SIZE, TAG_KEY, URL_KEY, DOWNLOAD_KEY, PAGE_KEY, CONTENT_KEY, TAGS
 
 
 @staticmethod
@@ -58,13 +58,16 @@ class Search:
         self.target_earliest = earliest
         self.target_latest = latest
         self.tags = tags
+        self.tag_str = self.get_tag_str(self.tags)
         self.mode = mode
+        self.matching_entries = []
+        self.total_searched = 0
 
 
     def retrieve_entries(self, offset, size=REQUEST_SIZE):
         api_url = f"https://www.fifa.com/api/get-card-content?requestLocale=en&requestContentTypes=Document&" \
                   f"requestSize={size}&requestFrom={offset}&requestSort={self.sort_order}&" \
-                  f"requestTags={self.tags}&" \
+                  f"requestTags={self.tag_str}&" \
                   f"requestExcludeIds=&requestTagHandlingQuery=OR"
         resp = request.urlopen(api_url)
         resp_text = resp.read()
@@ -88,6 +91,16 @@ class Search:
         return first_date, last_date
 
 
+    def get_tag_str(self, tags):
+        tag_str = ""
+        for tag in tags:
+            if not tag_str == "":
+                tag_str += ","
+            tag_str += TAGS[tag]
+        return tag_str
+
+
+
 class SearchThread(threading.Thread):
     def __init__(self, search, matched_cb, update_cb=update_fn, end_cb=end_fn, stop_event=None):
         super().__init__()
@@ -101,11 +114,10 @@ class SearchThread(threading.Thread):
     def run(self):
         self.init_search()
         if self.is_valid_search():
-            self.search_entries_for_term()
+            self.search.matching_entries = self.search_entries_for_term()
         else:
             print("Invalid search.")
             self.end_cb(False)
-        self.end_cb(True)
 
     def init_search(self):
         entries = self.search.retrieve_entries(0, size=1)
@@ -124,7 +136,6 @@ class SearchThread(threading.Thread):
 
         offset = self.locate_start_offset()
         start_offset = offset
-        print(offset)
         if offset == -1:
             print('No entries found in date range.')
             return matching_entries
@@ -142,8 +153,9 @@ class SearchThread(threading.Thread):
                     return matching_entries
                 if parse_date(entry[ORIGINAL_DATE_KEY]) > self.search.target_latest:
                     continue
+
                 progress = int(((offset-start_offset + entry_index)/(self.search.total-start_offset)) * 100)
-                self.update_cb(progress, f"{entry[TITLE_KEY][:50]} - {entry[DATE_KEY]}")
+                self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
 
                 matched = False
                 if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry[TAG_KEY].lower():
@@ -167,8 +179,9 @@ class SearchThread(threading.Thread):
                     matching_entries.append(entry)
                     self.matched_cb(len(matching_entries), self.search.term, entry)
                 entry_index += 1
+                self.search.total_searched += 1
             offset += REQUEST_SIZE
-
+        self.end_cb(True, len(matching_entries), self.search.total_searched)
         return matching_entries
 
     def scan_pdf_for_match(self, pdf_url, entry, cover_only=False):
