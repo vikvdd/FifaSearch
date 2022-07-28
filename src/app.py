@@ -121,7 +121,7 @@ class App:
         self.search_button = ttk.Button(self.mainframe, text="Search", command=self.on_click_search)
         self.search_button.grid(column=0, row=0, sticky=NE)
 
-        self.categories_lb = Listbox(self.mainframe, selectmode="multiple")
+        self.categories_lb = Listbox(self.mainframe, selectmode="multiple", exportselection=False)
         self.categories_lb.grid(column=0, row=9, sticky=N + W)
         for category in TAGS.keys():
             self.categories_lb.insert(0, category)
