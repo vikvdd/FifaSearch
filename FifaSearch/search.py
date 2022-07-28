@@ -7,7 +7,7 @@ from io import BytesIO
 from dateutil import parser
 
 from const import DATE_DESCENDING, DATA_KEY, ORIGINAL_DATE_KEY, TOTAL_KEY, DATE_ASCENDING, TITLE_KEY, DATE_KEY, \
-    REQUEST_SIZE
+    REQUEST_SIZE, TAG_KEY, URL_KEY, DOWNLOAD_KEY, PAGE_KEY, CONTENT_KEY
 
 
 @staticmethod
@@ -46,7 +46,12 @@ class Search:
 
     def __init__(self, term, latest=None, earliest=None, tags="", sort_order=DATE_DESCENDING, mode=SearchMode.FULL):
         self.total = 0
-        self.term = term.lower()
+        self.deep_search = False
+        if len(term) > 2 and term[0] == "*" and term[-1] == "*":
+            self.deep_search = True
+            term = term[1:-1]
+            term.replace(" ", "")
+        self.term = term.strip().lower()
         self.sort_order = sort_order
         self.earliest_date = None
         self.latest_date = None
@@ -54,6 +59,7 @@ class Search:
         self.target_latest = latest
         self.tags = tags
         self.mode = mode
+
 
     def retrieve_entries(self, offset, size=REQUEST_SIZE):
         api_url = f"https://www.fifa.com/api/get-card-content?requestLocale=en&requestContentTypes=Document&" \
@@ -64,10 +70,10 @@ class Search:
         resp_text = resp.read()
         text = resp_text.decode('utf-8')
         data = json.loads(text)
-        content_key = 'topicContent'
+
         entries = []
-        if content_key in data:
-            entries = data[content_key]
+        if CONTENT_KEY in data:
+            entries = data[CONTENT_KEY]
 
         return entries
 
@@ -101,7 +107,6 @@ class SearchThread(threading.Thread):
             self.end_cb(False)
         self.end_cb(True)
 
-
     def init_search(self):
         entries = self.search.retrieve_entries(0, size=1)
         self.search.total = entries[TOTAL_KEY]
@@ -114,16 +119,12 @@ class SearchThread(threading.Thread):
         earliest_date = parse_date(date_str)
         self.search.earliest_date = earliest_date
 
-
     def search_entries_for_term(self):
-        term = self.search.term.lower()
         matching_entries = []
-        target_date = self.search.target_latest
-        if self.search.sort_order == DATE_ASCENDING:
-            target_date = self.search.target_earliest
 
-        offset = self.locate_start_offset(target_date)
+        offset = self.locate_start_offset()
         start_offset = offset
+        print(offset)
         if offset == -1:
             print('No entries found in date range.')
             return matching_entries
@@ -139,16 +140,18 @@ class SearchThread(threading.Thread):
             for entry in entries:
                 if self.stop_event and self.stop_event.is_set():
                     return matching_entries
+                if parse_date(entry[ORIGINAL_DATE_KEY]) > self.search.target_latest:
+                    continue
                 progress = int(((offset-start_offset + entry_index)/(self.search.total-start_offset)) * 100)
                 self.update_cb(progress, f"{entry[TITLE_KEY][:50]} - {entry[DATE_KEY]}")
 
                 matched = False
-                if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry['tag'].lower():
+                if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry[TAG_KEY].lower():
                     matched = True
                 if self.search.mode == SearchMode.META_DATA_ONLY:
                     continue
                 try:
-                    pdf_url = entry['download']['url']
+                    pdf_url = entry[DOWNLOAD_KEY][URL_KEY]
                     cover_only = False
                     if self.search.mode == SearchMode.META_AND_COVER:
                         cover_only = True
@@ -157,7 +160,7 @@ class SearchThread(threading.Thread):
 
                 except Exception as e:
                     print("Could not load pdf.")
-                    print(e)
+                    print(e.with_traceback())
                 if self.stop_event.is_set():
                     return matching_entries
                 elif matched:
@@ -177,11 +180,14 @@ class SearchThread(threading.Thread):
             if self.stop_event and self.stop_event.is_set():
                 return False
             text = page.extractText().lower()
+            if self.search.deep_search:
+                deep = text.replace(" ", "")
+                if self.search.term in deep:
+                    entry[PAGE_KEY] = index
+                    return True
             if self.search.term in text:
-                entry['page'] = index
+                entry[PAGE_KEY] = index
                 return True
-
-                break
             if cover_only:
                 break
             index += 1
@@ -198,36 +204,37 @@ class SearchThread(threading.Thread):
             return False
         return True
 
-    #Binary search for request offset containing given date
-    def locate_start_offset(self, date):
+    #Binary search for closest request offset containing given date
+    def locate_start_offset(self):
         low = 0
         high = self.search.total
-        first_entry = self.search.retrieve_entries(0, size=1)
-        first_date = parse_date(first_entry[DATA_KEY][0][ORIGINAL_DATE_KEY])
-        last_entry = self.search.retrieve_entries(self.search.total - 1, size=1)
-        last_date = parse_date(last_entry[DATA_KEY][-1][ORIGINAL_DATE_KEY])
-        if self.search.target_earliest < last_date:
-            self.search.target_earliest = last_date
-        if self.search.target_latest > first_date:
-            self.search.target_latest = first_date
-        if self.search.target_earliest > first_date or self.search.target_latest < last_date:
+        newest_entry = self.search.retrieve_entries(0, size=1)
+        newest_date = parse_date(newest_entry[DATA_KEY][0][ORIGINAL_DATE_KEY])
+        oldest_entry = self.search.retrieve_entries(self.search.total - 1, size=1)
+        oldest_date = parse_date(oldest_entry[DATA_KEY][-1][ORIGINAL_DATE_KEY])
+        if self.search.target_earliest < oldest_date:
+            self.search.target_earliest = oldest_date
+        if self.search.target_latest > newest_date:
+            self.search.target_latest = newest_date
+        if self.search.target_earliest > newest_date or self.search.target_latest < oldest_date:
             return -1
-        if self.search.target_latest >= first_date:
+        if self.search.target_latest >= newest_date:
             return 0
+        mid_offset = 0
         while low < high:
-            mid_offset = (((high - low) // 2) - REQUEST_SIZE) + low
+            mid_offset = ((high - low) // 2) + low
             mid_entries = self.search.retrieve_entries(mid_offset)
             if DATA_KEY not in mid_entries or len(mid_entries[DATA_KEY]) == 0:
-                break
+                return -1
             data = mid_entries[DATA_KEY]
-            first_date = parse_date(data[0][ORIGINAL_DATE_KEY])
-            last_date = parse_date(data[-1][ORIGINAL_DATE_KEY])
-
-            if date > first_date:
+            newest_date = parse_date(data[0][ORIGINAL_DATE_KEY])
+            oldest_date = parse_date(data[-1][ORIGINAL_DATE_KEY])
+            if self.search.target_latest > newest_date:
                 high = mid_offset
-            elif date < last_date:
+            elif self.search.target_latest < oldest_date:
                 low = mid_offset
             else:
                 return mid_offset
+        return -1
 
 

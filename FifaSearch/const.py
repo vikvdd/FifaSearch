@@ -6,6 +6,11 @@ TOTAL_KEY = "total"
 TITLE_KEY = "title"
 DATE_KEY = "date"
 ORIGINAL_DATE_KEY = "originalDate"
+TAG_KEY = "tag"
+DOWNLOAD_KEY = "download"
+URL_KEY = "url"
+PAGE_KEY = "page"
+CONTENT_KEY = "topicContent"
 
 TAGS = {
     "PSC Overdue Payables": "71Tb4ZwcYqRp2Kzg34zxOc",
