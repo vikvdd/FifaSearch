@@ -1,11 +1,14 @@
 # FIFA SEARCH 
 Search app for the Fifa legal database
 
+## Quick installation 
+
+1. Download the latest version from [the releases page.](https://github.com/vikvdd/FifaSearch/releases/)
 
 ## Manual Installation
 
-1. Download  and install Python from [the official website.](https://www.python.org/ "their website.") (If necessary)
-2. Download and install Git from [the official website.](https://git-scm.com/downloads "the official website.") (If necessary)
+1. Download  and install Python from [the official website.](https://www.python.org/) (If necessary)
+2. Download and install Git from [the official website.](https://git-scm.com/downloads) (If necessary)
 
 ### Mac
 1. Open the terminal application
