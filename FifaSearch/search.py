@@ -44,7 +44,7 @@ class Search:
         "Ethics Committee": "REfRLYazlDecPI4V5PsJF"
     }
 
-    def __init__(self, term, latest=None, earliest=None, tags="", sort_order=DATE_DESCENDING, mode=SearchMode.FULL):
+    def __init__(self, term, newest=None, oldest=None, tags="", sort_order=DATE_DESCENDING, mode=SearchMode.FULL):
         self.total = 0
         self.deep_search = False
         if len(term) > 2 and term[0] == "*" and term[-1] == "*":
@@ -53,10 +53,10 @@ class Search:
             term.replace(" ", "")
         self.term = term.strip().lower()
         self.sort_order = sort_order
-        self.earliest_date = None
-        self.latest_date = None
-        self.target_earliest = earliest
-        self.target_latest = latest
+        self.oldest_date = None
+        self.newest_date = None
+        self.target_oldest = oldest
+        self.target_newest = newest
         self.tags = tags
         self.tag_str = self.get_tag_str(self.tags)
         self.mode = mode
@@ -100,7 +100,6 @@ class Search:
         return tag_str
 
 
-
 class SearchThread(threading.Thread):
     def __init__(self, search, matched_cb, update_cb=update_fn, end_cb=end_fn, stop_event=None):
         super().__init__()
@@ -118,18 +117,23 @@ class SearchThread(threading.Thread):
         else:
             print("Invalid search.")
             self.end_cb(False)
+        self.end_cb(True, len(self.search.matching_entries), self.search.total_searched)
 
     def init_search(self):
         entries = self.search.retrieve_entries(0, size=1)
         self.search.total = entries[TOTAL_KEY]
-        latest_data = entries[DATA_KEY]
-        latest_date = parse_date(latest_data[0][ORIGINAL_DATE_KEY])
-        self.search.latest_date = latest_date
-        last_entries = self.search.retrieve_entries(self.search.total - 1, size=1)
-        earliest_data = last_entries[DATA_KEY]
-        date_str = earliest_data[-1][ORIGINAL_DATE_KEY]
-        earliest_date = parse_date(date_str)
-        self.search.earliest_date = earliest_date
+        newest_data = entries[DATA_KEY]
+        newest_date = parse_date(newest_data[0][ORIGINAL_DATE_KEY])
+        self.search.newest_date = newest_date
+        oldest_entries = self.search.retrieve_entries(self.search.total - 1, size=1)
+        oldest_data = oldest_entries[DATA_KEY]
+        date_str = oldest_data[-1][ORIGINAL_DATE_KEY]
+        oldest_date = parse_date(date_str)
+        self.search.oldest_date = oldest_date
+        if self.search.target_oldest < oldest_date:
+            self.search.target_oldest = oldest_date
+        if self.search.target_newest > newest_date:
+            self.search.target_newest = newest_date
 
     def search_entries_for_term(self):
         matching_entries = []
@@ -149,39 +153,45 @@ class SearchThread(threading.Thread):
                 break
             entry_index = 0
             for entry in entries:
-                if self.stop_event and self.stop_event.is_set():
-                    return matching_entries
-                if parse_date(entry[ORIGINAL_DATE_KEY]) > self.search.target_latest:
-                    continue
-
-                progress = int(((offset-start_offset + entry_index)/(self.search.total-start_offset)) * 100)
-                self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
-
-                matched = False
-                if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry[TAG_KEY].lower():
-                    matched = True
-                if self.search.mode == SearchMode.META_DATA_ONLY:
-                    continue
                 try:
-                    pdf_url = entry[DOWNLOAD_KEY][URL_KEY]
-                    cover_only = False
-                    if self.search.mode == SearchMode.META_AND_COVER:
-                        cover_only = True
-                    if self.scan_pdf_for_match(pdf_url, entry, cover_only=cover_only):
-                        matched = True
+                    if self.stop_event and self.stop_event.is_set():
+                        return matching_entries
+                    entry_date = parse_date(entry[ORIGINAL_DATE_KEY])
+                    if entry_date > self.search.target_newest:
+                        continue
+                    elif entry_date < self.search.target_oldest:
+                        return matching_entries
+                    progress = int(((offset-start_offset + entry_index)/(self.search.total-start_offset)) * 100)
+                    self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
 
+                    matched = False
+                    if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry[TAG_KEY].lower() \
+                            or self.search.term in entry[DOWNLOAD_KEY][URL_KEY].lower():
+                        matched = True
+                    if self.search.mode == SearchMode.META_DATA_ONLY:
+                        continue
+                    try:
+                        pdf_url = entry[DOWNLOAD_KEY][URL_KEY]
+                        cover_only = False
+                        if self.search.mode == SearchMode.META_AND_COVER:
+                            cover_only = True
+                        if self.scan_pdf_for_match(pdf_url, entry, cover_only=cover_only):
+                            matched = True
+
+                    except Exception as e:
+                        print("Could not load pdf.")
+                        print(e.with_traceback())
+                    if self.stop_event.is_set():
+                        return matching_entries
+                    elif matched:
+                        matching_entries.append(entry)
+                        self.matched_cb(len(matching_entries), self.search.term, entry)
+                    entry_index += 1
+                    self.search.total_searched += 1
                 except Exception as e:
-                    print("Could not load pdf.")
                     print(e.with_traceback())
-                if self.stop_event.is_set():
-                    return matching_entries
-                elif matched:
-                    matching_entries.append(entry)
-                    self.matched_cb(len(matching_entries), self.search.term, entry)
-                entry_index += 1
-                self.search.total_searched += 1
+                    print("An error occurred while searching entry. Skipped.")
             offset += REQUEST_SIZE
-        self.end_cb(True, len(matching_entries), self.search.total_searched)
         return matching_entries
 
     def scan_pdf_for_match(self, pdf_url, entry, cover_only=False):
@@ -208,12 +218,12 @@ class SearchThread(threading.Thread):
 
     #True if date range contains any entries
     def is_valid_search(self):
-        first_entry = self.search.retrieve_entries(0, size=1)
-        first_date = parse_date(first_entry[DATA_KEY][0][ORIGINAL_DATE_KEY])
-        last_entry = self.search.retrieve_entries(self.search.total - 1, size=1)
-        last_date = parse_date(last_entry[DATA_KEY][-1][ORIGINAL_DATE_KEY])
+        newest_entry = self.search.retrieve_entries(0, size=1)
+        newest_date = parse_date(newest_entry[DATA_KEY][0][ORIGINAL_DATE_KEY])
+        oldest_entry = self.search.retrieve_entries(self.search.total - 1, size=1)
+        oldest_date = parse_date(oldest_entry[DATA_KEY][-1][ORIGINAL_DATE_KEY])
 
-        if self.search.target_earliest > first_date or self.search.target_latest < last_date:
+        if self.search.target_oldest > newest_date or self.search.target_newest < oldest_date:
             return False
         return True
 
@@ -225,13 +235,10 @@ class SearchThread(threading.Thread):
         newest_date = parse_date(newest_entry[DATA_KEY][0][ORIGINAL_DATE_KEY])
         oldest_entry = self.search.retrieve_entries(self.search.total - 1, size=1)
         oldest_date = parse_date(oldest_entry[DATA_KEY][-1][ORIGINAL_DATE_KEY])
-        if self.search.target_earliest < oldest_date:
-            self.search.target_earliest = oldest_date
-        if self.search.target_latest > newest_date:
-            self.search.target_latest = newest_date
-        if self.search.target_earliest > newest_date or self.search.target_latest < oldest_date:
+
+        if self.search.target_oldest > newest_date or self.search.target_newest < oldest_date:
             return -1
-        if self.search.target_latest >= newest_date:
+        if self.search.target_newest >= newest_date:
             return 0
         mid_offset = 0
         while low < high:
@@ -242,9 +249,9 @@ class SearchThread(threading.Thread):
             data = mid_entries[DATA_KEY]
             newest_date = parse_date(data[0][ORIGINAL_DATE_KEY])
             oldest_date = parse_date(data[-1][ORIGINAL_DATE_KEY])
-            if self.search.target_latest > newest_date:
+            if self.search.target_newest > newest_date:
                 high = mid_offset
-            elif self.search.target_latest < oldest_date:
+            elif self.search.target_newest < oldest_date:
                 low = mid_offset
             else:
                 return mid_offset

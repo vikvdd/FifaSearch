@@ -36,7 +36,7 @@ class App:
 
     def on_complete_search(self, success, matches_found, total_searched):
         if success:
-            self.result_text.insert(1.0, f"\nSearch complete. Found {matches_found} out of {total_searched}\n\n\n\n")
+            self.result_text.insert(1.0, f"\nSearch complete. \nFound {matches_found} matches out of {total_searched} searched.\n\n\n\n")
         else:
             self.result_text.insert(1.0, "\n\nSearch failed. No entries matched given parameters.")
         self.progress['value'] = 0
@@ -47,7 +47,8 @@ class App:
     def on_match_found(self, index, search_term, entry):
         self.result_text.insert(1.0, '------------------------\n')
         if PAGE_KEY in entry:
-            self.result_text.insert(1.0, f"\nFound on page: {entry[PAGE_KEY]}\n\n")
+            page = int(entry[PAGE_KEY]) + 1
+            self.result_text.insert(1.0, f"\nFound on page: {page}\n\n")
         hyperlink = HyperlinkManager(self.result_text)
         self.result_text.insert(1.0, "\nView PDF", hyperlink.add(partial(webbrowser.open, entry[DOWNLOAD_KEY][URL_KEY])))
         self.result_text.insert(1.0, f"\nOriginal Date: {entry[ORIGINAL_DATE_KEY]}")
@@ -148,7 +149,7 @@ class App:
         self.prog_lbl.grid(column=1, row=1, sticky=S+E+W)
         self.progress = Progressbar(self.mainframe, orient=HORIZONTAL,
                                length=100, mode='determinate')
-        self.progress.grid(column=0, row=10, sticky=S+E+W)
+        self.progress.grid(column=0, row=1, sticky=S+E+W)
 
         for child in self.mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
