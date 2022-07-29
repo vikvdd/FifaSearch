@@ -107,11 +107,15 @@ class SearchThread(threading.Thread):
         self.end_cb = end_cb
         self.search = search
         self.stop_event = stop_event
+        self.offset = -1
+        self.start_offset = -1
+        self.end_offset = -1
+        self.search_complete = False
 
     def run(self):
         self.init_search()
         if self.is_valid_search():
-            self.search.matching_entries = self.search_entries_for_term()
+            self.search_entries_for_term()
         else:
             print("Invalid search.")
             self.end_cb(False)
@@ -134,70 +138,75 @@ class SearchThread(threading.Thread):
             self.search.target_newest = newest_date
 
     def search_entries_for_term(self):
-        matching_entries = []
         new_offset = self.locate_start_offset(self.search.target_newest, self.search.date_desc)
         old_offset = self.locate_start_offset(self.search.target_oldest, not self.search.date_desc)
-        offset = new_offset
-        end_offset = old_offset
+        self.offset = new_offset
+        self.end_offset = old_offset
         if not self.search.date_desc:
-            offset = old_offset
-            end_offset = new_offset
-        start_offset = offset
-        if offset == -1:
+            self.offset = old_offset
+            self.end_offset = new_offset
+        self.start_offset = self.offset
+        if self.offset == -1:
             print('No entries found in date range.')
-            return matching_entries
-        while True:
+            return
+        while not self.stop_event.is_set() and not self.search_complete:
             if self.stop_event and self.stop_event.is_set():
-                return matching_entries
-            entries_resp = self.search.retrieve_entries(offset)
+                return
+            entries_resp = self.search.retrieve_entries(self.offset)
             if DATA_KEY in entries_resp:
                 entries = entries_resp[DATA_KEY]
             if len(entries) == 0:
                 break
-            entry_index = 0
-            for entry in entries:
-                try:
-                    if self.stop_event and self.stop_event.is_set():
-                        return matching_entries
-                    entry_date = parse_date(entry[ORIGINAL_DATE_KEY])
-                    if entry_date > self.search.target_newest:
-                        continue
-                    progress = self.calculate_progress(offset, entry_index, start_offset,
-                                                       end_offset)
-                    
-                    self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
-                    if entry_date < self.search.target_oldest:
-                        return matching_entries
+            self.scan_entries_for_match(entries)
+            self.offset += REQUEST_SIZE
+        return
 
+    def scan_entries_for_match(self, entries):
+        index = 0
+        for entry in entries:
+            if self.stop_event.is_set() or self.search_complete:
+                return
+            try:
+                progress = self.calculate_progress(self.offset, index, self.start_offset,
+                                                   self.end_offset)
+                self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
+                self.scan_entry_for_match(entry)
+                index += 1
+                self.search.total_searched += 1
+            except Exception as e:
+                print(e)
+                print("An error occurred while searching entry. Skipped.")
 
-                    matched = False
-                    if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry[TAG_KEY].lower() \
-                            or self.search.term in entry[DOWNLOAD_KEY][URL_KEY].lower():
-                        matched = True
-                    if not self.search.mode == SearchMode.META_DATA_ONLY:
-                        try:
-                            pdf_url = entry[DOWNLOAD_KEY][URL_KEY]
-                            cover_only = False
-                            if self.search.mode == SearchMode.META_AND_COVER:
-                                cover_only = True
-                            if self.scan_pdf_for_match(pdf_url, entry, cover_only=cover_only):
-                                matched = True
+    def scan_entry_for_match(self, entry):
+        entry_date = parse_date(entry[ORIGINAL_DATE_KEY])
+        if entry_date > self.search.target_newest:
+            return
+        elif entry_date < self.search.target_oldest:
+            self.search_complete = True
+            return
 
-                        except Exception as e:
-                            print("Could not load pdf.")
-                            print(e)
-                    if self.stop_event.is_set():
-                        return matching_entries
-                    elif matched:
-                        matching_entries.append(entry)
-                        self.matched_cb(len(matching_entries), self.search.term, entry)
-                    entry_index += 1
-                    self.search.total_searched += 1
-                except Exception as e:
-                    print(e)
-                    print("An error occurred while searching entry. Skipped.")
-            offset += REQUEST_SIZE
-        return matching_entries
+        matched = False
+        if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry[TAG_KEY].lower() \
+                or self.search.term in entry[DOWNLOAD_KEY][URL_KEY].lower():
+            matched = True
+        if not self.search.mode == SearchMode.META_DATA_ONLY:
+            try:
+                pdf_url = entry[DOWNLOAD_KEY][URL_KEY]
+                cover_only = False
+                if self.search.mode == SearchMode.META_AND_COVER:
+                    cover_only = True
+                if self.scan_pdf_for_match(pdf_url, entry, cover_only=cover_only):
+                    matched = True
+
+            except Exception as e:
+                print("Could not load pdf.")
+                print(e)
+        if self.stop_event.is_set():
+            return
+        elif matched:
+            self.search.matching_entries.append(entry)
+            self.matched_cb(len(self.search.matching_entries), self.search.term, entry)
+
 
     def scan_pdf_for_match(self, pdf_url, entry, cover_only=False):
         ctx = ssl.create_default_context()
