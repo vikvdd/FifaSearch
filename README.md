@@ -6,6 +6,7 @@ Search app for the Fifa legal database
 ## Quick installation 
 
 1. Download the latest version from [the releases page.](https://github.com/vikvdd/FifaSearch/releases/)
+2. Unzip the file and double click to launch the program.
 
 ## Manual Installation
 
