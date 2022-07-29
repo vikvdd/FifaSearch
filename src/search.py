@@ -163,7 +163,7 @@ class SearchThread(threading.Thread):
                     if entry_date > self.search.target_newest:
                         continue
                     progress = self.calculate_progress(offset, entry_index, start_offset,
-                                                       end_offset, self.search.date_desc)
+                                                       end_offset)
                     
                     self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
                     if entry_date < self.search.target_oldest:
@@ -266,10 +266,8 @@ class SearchThread(threading.Thread):
                 return mid_offset
         return -1
 
-    def calculate_progress(self, offset, index, start_offset, end_offset, date_desc):
-        print(offset, index, start_offset, end_offset)
+    def calculate_progress(self, offset, index, start_offset, end_offset, date_desc=True):
         progress = (((offset - start_offset) + index) / (end_offset - start_offset)) * 100
-        print(progress)
         progress = int(progress)
         if not date_desc:
             progress = 1 - progress

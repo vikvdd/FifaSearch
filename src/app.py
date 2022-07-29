@@ -33,11 +33,13 @@ class App:
         self.progress['value'] = percent
         self.root.update_idletasks()
 
-    def on_complete_search(self, success, matches_found, total_searched):
+    def on_complete_search(self, success, matches_found=-1, total_searched=-1):
         if success:
-            self.result_text.insert(1.0, f"\nSearch complete. \nFound {matches_found} matches out of {total_searched} searched.\n\n\n\n")
+            self.result_text.insert(1.0, f"\nSearch complete.\n\n\n")
+            if matches_found > -1 and total_searched > -1:
+                self.result_text.insert(1.0, f"\nFound {matches_found} match(es) out of {total_searched} searched.\n")
         else:
-            self.result_text.insert(1.0, "\n\nSearch failed. No entries matched given parameters.")
+            self.result_text.insert(1.0, "\nSearch failed. No entries matched given parameters.\n\n")
         self.progress['value'] = 0
         self.prog_lbl.config(text="")
         self.search_button.config(text="Search")
@@ -136,12 +138,12 @@ class App:
         #self.sort_checkbox.grid(column=0, row=4, sticky=NW)
 
         self.start_date_lbl = ttk.Label(self.mainframe, text="Start date: ").grid(column=0, row=5, sticky=NW)
-        self.start_cal = DateEntry(self.mainframe, width=15, background="grey", foreground="white", bd=2, date_pattern="dd/mm/y")
+        self.start_cal = DateEntry(self.mainframe, width=15, background="grey", foreground="white", bd=2, date_pattern="y/mm/dd")
         self.start_cal.grid(column=0, row=6, sticky=NW)
         self.start_cal._top_cal.overrideredirect(False)
 
         self.end_date_lbl = ttk.Label(self.mainframe, text="End date: ").grid(column=0, row=7, sticky=NW)
-        self.end_cal = DateEntry(self.mainframe, width= 15, background="white", foreground="black", bd=2, date_pattern="dd/mm/y")
+        self.end_cal = DateEntry(self.mainframe, width= 15, background="white", foreground="black", bd=2, date_pattern="y/mm/dd")
         self.end_cal.grid(column=0, row=8, sticky=NW)
         self.end_cal._top_cal.overrideredirect(False)
 
