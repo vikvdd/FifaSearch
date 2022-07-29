@@ -45,6 +45,9 @@ class Search:
             term.replace(" ", "")
         self.term = term.strip().lower()
         self.sort_order = sort_order
+        self.date_desc = True
+        if sort_order == DATE_ASCENDING:
+            self.date_desc = False
         self.oldest_date = None
         self.newest_date = None
         self.target_oldest = oldest
@@ -132,8 +135,13 @@ class SearchThread(threading.Thread):
 
     def search_entries_for_term(self):
         matching_entries = []
-
-        offset = self.locate_start_offset()
+        new_offset = self.locate_start_offset(self.search.target_newest, self.search.date_desc)
+        old_offset = self.locate_start_offset(self.search.target_oldest, not self.search.date_desc)
+        offset = new_offset
+        end_offset = old_offset
+        if not self.search.date_desc:
+            offset = old_offset
+            end_offset = new_offset
         start_offset = offset
         if offset == -1:
             print('No entries found in date range.')
@@ -154,28 +162,30 @@ class SearchThread(threading.Thread):
                     entry_date = parse_date(entry[ORIGINAL_DATE_KEY])
                     if entry_date > self.search.target_newest:
                         continue
-                    elif entry_date < self.search.target_oldest:
-                        return matching_entries
-                    progress = int(((offset-start_offset + entry_index)/(self.search.total-start_offset)) * 100)
+                    progress = self.calculate_progress(offset, entry_index, start_offset,
+                                                       end_offset, self.search.date_desc)
+                    
                     self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
+                    if entry_date < self.search.target_oldest:
+                        return matching_entries
+
 
                     matched = False
                     if self.search.term in entry[TITLE_KEY].lower() or self.search.term in entry[TAG_KEY].lower() \
                             or self.search.term in entry[DOWNLOAD_KEY][URL_KEY].lower():
                         matched = True
-                    if self.search.mode == SearchMode.META_DATA_ONLY:
-                        continue
-                    try:
-                        pdf_url = entry[DOWNLOAD_KEY][URL_KEY]
-                        cover_only = False
-                        if self.search.mode == SearchMode.META_AND_COVER:
-                            cover_only = True
-                        if self.scan_pdf_for_match(pdf_url, entry, cover_only=cover_only):
-                            matched = True
+                    if not self.search.mode == SearchMode.META_DATA_ONLY:
+                        try:
+                            pdf_url = entry[DOWNLOAD_KEY][URL_KEY]
+                            cover_only = False
+                            if self.search.mode == SearchMode.META_AND_COVER:
+                                cover_only = True
+                            if self.scan_pdf_for_match(pdf_url, entry, cover_only=cover_only):
+                                matched = True
 
-                    except Exception as e:
-                        print("Could not load pdf.")
-                        print(e)
+                        except Exception as e:
+                            print("Could not load pdf.")
+                            print(e)
                     if self.stop_event.is_set():
                         return matching_entries
                     elif matched:
@@ -226,7 +236,7 @@ class SearchThread(threading.Thread):
         return True
 
     #Binary search for closest request offset containing given date
-    def locate_start_offset(self):
+    def locate_start_offset(self, target, desc=True):
         low = 0
         high = self.search.total
         newest_entry = self.search.retrieve_entries(0, size=1)
@@ -234,11 +244,12 @@ class SearchThread(threading.Thread):
         oldest_entry = self.search.retrieve_entries(self.search.total - 1, size=1)
         oldest_date = parse_date(oldest_entry[DATA_KEY][-1][ORIGINAL_DATE_KEY])
 
-        if self.search.target_oldest > newest_date or self.search.target_newest < oldest_date:
+        if (desc and target < oldest_date) or (not desc and target > newest_date):
             return -1
-        if self.search.target_newest >= newest_date:
+        elif desc and target >= newest_date:
             return 0
-        mid_offset = 0
+        elif not desc and target <= oldest_date:
+            return self.search.total
         while low < high:
             mid_offset = ((high - low) // 2) + low
             mid_entries = self.search.retrieve_entries(mid_offset)
@@ -247,12 +258,21 @@ class SearchThread(threading.Thread):
             data = mid_entries[DATA_KEY]
             newest_date = parse_date(data[0][ORIGINAL_DATE_KEY])
             oldest_date = parse_date(data[-1][ORIGINAL_DATE_KEY])
-            if self.search.target_newest > newest_date:
+            if target > newest_date:
                 high = mid_offset
-            elif self.search.target_newest < oldest_date:
+            elif target < oldest_date:
                 low = mid_offset
             else:
                 return mid_offset
         return -1
+
+    def calculate_progress(self, offset, index, start_offset, end_offset, date_desc):
+        print(offset, index, start_offset, end_offset)
+        progress = (((offset - start_offset) + index) / (end_offset - start_offset)) * 100
+        print(progress)
+        progress = int(progress)
+        if not date_desc:
+            progress = 1 - progress
+        return progress
 
 

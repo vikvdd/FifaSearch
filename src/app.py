@@ -44,7 +44,7 @@ class App:
         self.search_active = False
 
     def on_match_found(self, index, search_term, entry):
-        self.result_text.insert(1.0, '------------------------\n')
+        self.result_text.insert(1.0, '\n------------------------\n')
         if PAGE_KEY in entry:
             page = int(entry[PAGE_KEY]) + 1
             self.result_text.insert(1.0, f"\nFound on page: {page}\n\n")
