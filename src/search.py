@@ -275,7 +275,6 @@ class SearchThread(threading.Thread):
 
         progress = (((self.offset + index) - self.start_offset)/ (self.end_offset - self.start_offset)) * 100
         progress = int(progress)
-        print(progress)
         if not date_desc:
             progress = 1 - progress
         return progress
