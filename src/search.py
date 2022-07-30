@@ -11,15 +11,6 @@ from const import DATE_DESCENDING, DATA_KEY, ORIGINAL_DATE_KEY, TOTAL_KEY, DATE_
     REQUEST_SIZE, TAG_KEY, URL_KEY, DOWNLOAD_KEY, PAGE_KEY, CONTENT_KEY, TAGS
 
 
-@staticmethod
-def update_fn(*args, **kwargs):
-    print("Thread work active")
-
-@staticmethod
-def end_fn(*args, **kwargs):
-    print("Thread completed task.")
-
-
 def parse_date(date_str):
     try:
         date = parser.parse(date_str, fuzzy=True)
@@ -67,12 +58,16 @@ class Search:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        resp = request.urlopen(api_url, context=ctx)
-        resp_text = resp.read()
-        text = resp_text.decode('utf-8')
-        data = json.loads(text)
+        try:
+            resp = request.urlopen(api_url, context=ctx)
+            resp_text = resp.read()
+            text = resp_text.decode('utf-8')
+            data = json.loads(text)
+        except Exception as e:
+            print(e)
+            return {}
 
-        entries = []
+        entries = {}
         if CONTENT_KEY in data:
             entries = data[CONTENT_KEY]
 
@@ -99,7 +94,7 @@ class Search:
 
 
 class SearchThread(threading.Thread):
-    def __init__(self, search, matched_cb, update_cb=update_fn, end_cb=end_fn, stop_event=None):
+    def __init__(self, search, matched_cb=None, update_cb=None, end_cb=None, stop_event=None):
         super().__init__()
         self.daemon = True
         self.matched_cb = matched_cb
@@ -119,7 +114,8 @@ class SearchThread(threading.Thread):
         else:
             print("Invalid search.")
             self.end_cb(False)
-        self.end_cb(True, len(self.search.matching_entries), self.search.total_searched)
+        if self.end_cb:
+            self.end_cb(True, len(self.search.matching_entries), self.search.total_searched)
 
     def init_search(self):
         entries = self.search.retrieve_entries(0, size=1)
@@ -167,9 +163,9 @@ class SearchThread(threading.Thread):
             if self.stop_event.is_set() or self.search_complete:
                 return
             try:
-                progress = self.calculate_progress(self.offset, index, self.start_offset,
-                                                   self.end_offset)
-                self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
+                progress = self.calculate_progress(index)
+                if self.update_cb:
+                    self.update_cb(progress, f"{entry[DATE_KEY]} - {entry[TITLE_KEY][:50]}")
                 self.scan_entry_for_match(entry)
                 index += 1
                 self.search.total_searched += 1
@@ -205,8 +201,8 @@ class SearchThread(threading.Thread):
             return
         elif matched:
             self.search.matching_entries.append(entry)
-            self.matched_cb(len(self.search.matching_entries), self.search.term, entry)
-
+            if self.matched_cb:
+                self.matched_cb(len(self.search.matching_entries), self.search.term, entry)
 
     def scan_pdf_for_match(self, pdf_url, entry, cover_only=False):
         ctx = ssl.create_default_context()
@@ -275,8 +271,8 @@ class SearchThread(threading.Thread):
                 return mid_offset
         return -1
 
-    def calculate_progress(self, offset, index, start_offset, end_offset, date_desc=True):
-        progress = (((offset - start_offset) + index) / (end_offset - start_offset)) * 100
+    def calculate_progress(self, index, date_desc=True):
+        progress = (((self.offset - self.start_offset) + index) / (self.end_offset - self.start_offset)) * 100
         progress = int(progress)
         if not date_desc:
             progress = 1 - progress
