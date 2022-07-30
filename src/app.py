@@ -54,9 +54,9 @@ class App:
         if PAGE_KEY in entry:
             page = int(entry[PAGE_KEY]) + 1
             self.result_text.insert(1.0, f"\nFound on page: {page}\n\n")
-        hyperlink = HyperlinkManager(self.result_text)
+
         link = entry[DOWNLOAD_KEY][URL_KEY]
-        self.result_text.insert(1.0, f"\n{link}", hyperlink.add(partial(webbrowser.open, link)))
+        self.result_text.insert(1.0, f"\n{link}", self.hyperlink.add(partial(webbrowser.open, link)))
         self.result_text.insert(1.0, f"\nOriginal Date: {entry[ORIGINAL_DATE_KEY]}")
         self.result_text.insert(1.0, f"\nDate: {entry[DATE_KEY]}")
         self.result_text.insert(1.0, f"\nTag: {entry[TAG_KEY]}")
@@ -162,7 +162,7 @@ class App:
         for child in self.mainframe.winfo_children():
             child.grid_configure(padx=5, pady=5)
 
-
+        self.hyperlink = HyperlinkManager(self.result_text)
 
     def callback(url):
        webbrowser.open_new_tab(url)
