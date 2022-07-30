@@ -137,7 +137,7 @@ class SearchThread(threading.Thread):
         new_offset = self.locate_start_offset(self.search.target_newest, self.search.date_desc)
         old_offset = self.locate_start_offset(self.search.target_oldest, not self.search.date_desc)
         self.offset = new_offset
-        self.end_offset = old_offset
+        self.end_offset = old_offset + REQUEST_SIZE
         if not self.search.date_desc:
             self.offset = old_offset
             self.end_offset = new_offset
@@ -272,8 +272,10 @@ class SearchThread(threading.Thread):
         return -1
 
     def calculate_progress(self, index, date_desc=True):
-        progress = (((self.offset - self.start_offset) + index) / (self.end_offset - self.start_offset)) * 100
+
+        progress = (((self.offset + index) - self.start_offset)/ (self.end_offset - self.start_offset)) * 100
         progress = int(progress)
+        print(progress)
         if not date_desc:
             progress = 1 - progress
         return progress
