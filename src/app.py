@@ -21,9 +21,13 @@ class App:
             for tag in TAGS.keys():
                 tags.append(tag)
             start_search = Search("", tags=tags)
-            first, last = start_search.get_date_range()
-            self.start_cal.set_date(first)
-            self.end_cal.set_date(last)
+            try:
+                first, last = start_search.get_date_range()
+                self.start_cal.set_date(first)
+                self.end_cal.set_date(last)
+            except Exception as e:
+                print(e)
+                print("Failed to load date range.")
         except Exception as e:
             print(e)
         self.root.mainloop()
