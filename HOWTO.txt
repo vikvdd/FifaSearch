@@ -1,0 +1,22 @@
+FIFA SEARCH - Search function for the Fifa legal database
+Author: Viktor van den Dijssel
+https://github.com/vikvdd/FifaSearch
+
+USAGE:
+1. Enter search term/s.
+2. Select a search mode from the dropdown menu:
+    - Full search (default): Search through every entry, including the entire contents of the attached PDF
+    - Only search metadata: Only search the entry metadata (title, date posted) 
+    - Search metadata & cover page: Search metadata and the first page of attached PDF (Ideal for case numbers, authors, titles)
+3. Select the start date. Only entries posted before the start date will be searched.
+4. Select the end date. Only entries posted after the end date will be searched
+5. Select tags to filter entries.
+
+If you are searching for case numbers, try wrap the search terms in '*'s
+eg: *FPGP-3430*
+
+ISSUES & SUGGESTIONS:
+If you have any bugs, issues or feature requests, please open an issue on Github:
+https://github.com/vikvdd/FifaSearch/issues
+
+In case of bugs, try running the FifaSearchDebug version and copying the error message, it will help fix it far easier.
