@@ -15,13 +15,22 @@ Search app for the Fifa legal database
 
 ### Mac
 1. Open the terminal application
-2. Enter the following command: `git clone https://github.com/vikvdd/FifaSearch.git;cd FifaSearch/src;pip3 install -r ../requirements.txt`
-3. Installation complete, you may now run the program using command: `python3 app.py`
+2. Navigate to preferred download directory: `cd PATH/TO/DIRECTORY`
+3. Enter the following command: `git clone https://github.com/vikvdd/FifaSearch.git;cd FifaSearch/src;pip3 install -r ../requirements.txt`
+4. Installation complete, you may now run the program using command: `python3 app.py`
+
+### Windows
+1. Open the CMD application
+2. Navigate to preferred download directory: `cd PATH\TO\DIRECTORY`
+3. Enter the following command: `git clone https://github.com/vikvdd/FifaSearch.git;cd FifaSearch\src;pip install -r ..\requirements.txt`
+4. Installation complete, you may now run the program using command: `py app.py`
+
+
 
 [========]
 
 
-### Usage:
+## Usage:
 1. Enter search term/s.
 2. Select a search mode from the dropdown menu:
     - Full search (default): Search through every entry, including the entire contents of the attached PDF
